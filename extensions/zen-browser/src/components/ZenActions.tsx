@@ -18,7 +18,7 @@ function NewTabAction({ query }: { query?: string }) {
         title="Open with Zen"
         onAction={async () => {
           if (platform() === "win32") {
-            runPowerShellScript(
+            await runPowerShellScript(
               `Start-Process "zen" "${SEARCH_ENGINE[getPreferenceValues().searchEngine.toLowerCase()]}${query || ""}"`,
             );
           } else {
@@ -35,9 +35,9 @@ function HistoryItemAction({ entry: { title, url } }: { entry: HistoryEntry }) {
     <ActionPanel title={title}>
       <Action
         title="Open with Zen"
-        onAction={() => {
+        onAction={async () => {
           if (platform() === "win32") {
-            runPowerShellScript(`Start-Process "zen" "${url}"`);
+            await runPowerShellScript(`Start-Process "zen" "${url}"`);
           } else {
             open(url, "zen");
           }
