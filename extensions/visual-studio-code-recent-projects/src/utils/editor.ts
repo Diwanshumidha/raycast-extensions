@@ -17,6 +17,19 @@ const bundleIdMap: Record<string, string> = {
   Windsurf: "com.exafunction.windsurf",
 };
 
+const WinAppNames: Record<string, string> = {
+  Code: "Visual Studio Code",
+  "Code - Insiders": "Visual Studio Code - Insiders",
+  Cursor: "Cursor",
+  Kiro: "Kiro",
+  Positron: "Positron",
+  Trae: "Trae",
+  "Trae CN": "Trae CN",
+  VSCodium: "VSCodium",
+  "VSCodium - Insiders": "VSCodium - Insiders",
+  Windsurf: "Windsurf",
+};
+
 /**
  * Get the bundle ID for the specified build name
  * @param buildName The name of the build (e.g., "Code", "VSCodium", etc.)
@@ -24,6 +37,20 @@ const bundleIdMap: Record<string, string> = {
  */
 export function getBundleId(buildName: string): string {
   return bundleIdMap[buildName] || "";
+}
+
+function isApplicationMatch(app: Application, buildName: string): boolean {
+  const platform = process.platform;
+  const bundleId = bundleIdMap[buildName];
+
+  if (platform === "darwin" && app.bundleId) {
+    return app.bundleId === bundleId;
+  }
+
+  return (
+    app.name.toLowerCase() === buildName.toLowerCase() ||
+    WinAppNames[buildName].toLowerCase() === app.name.toLowerCase()
+  );
 }
 
 /**
@@ -34,12 +61,8 @@ export function getBundleId(buildName: string): string {
 export async function getEditorApplication(buildName: string): Promise<Application | undefined> {
   const apps = await cachedGetApplications();
 
-  // Find the app by bundle ID
-  const bundleId = bundleIdMap[buildName];
-  if (bundleId) {
-    const app = apps.find((app) => app.bundleId === bundleId);
-    if (app) return app;
-  }
+  const app = apps.find((app) => isApplicationMatch(app, buildName));
+  if (app) return app;
 
   return undefined;
 }

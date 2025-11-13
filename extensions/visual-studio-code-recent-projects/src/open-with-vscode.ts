@@ -1,7 +1,8 @@
 import { closeMainWindow, getFrontmostApplication, getSelectedFinderItems, open, showToast, Toast } from "@raycast/api";
-import { runAppleScript } from "@raycast/utils";
-import { bundleIdentifier } from "./preferences";
+import { runAppleScript, showFailureToast } from "@raycast/utils";
+import { build, bundleIdentifier } from "./preferences";
 import { getCurrentFinderPath } from "./utils/apple-scripts";
+import { resolveUriToPath } from "./utils/utils";
 
 // Function to get selected Path Finder items
 const getSelectedPathFinderItems = async () => {
@@ -27,22 +28,29 @@ export default async function main() {
     if (currentApp.name === "Finder") {
       selectedItems = await getSelectedFinderItems();
     } else if (currentApp.name === "Path Finder") {
+      if (process.platform === "win32") return showFailureToast("Path Finder is not supported on Windows");
       const paths = await getSelectedPathFinderItems();
       selectedItems = paths.map((p) => ({ path: p }));
     }
 
+    const applicationName = process.platform === "win32" ? build : bundleIdentifier;
+
     if (selectedItems.length === 0) {
       const currentPath = await getCurrentFinderPath();
       if (currentPath.length === 0) throw new Error("Not a valid directory");
-      await open(currentPath, bundleIdentifier);
+      const uri = process.platform === "win32" ? resolveUriToPath(currentPath) : currentPath;
+
+      await open(uri, applicationName);
     } else {
       for (const item of selectedItems) {
-        await open(item.path, bundleIdentifier);
+        const uri = process.platform === "win32" ? resolveUriToPath(item.path) : item.path;
+        await open(uri, applicationName);
       }
     }
 
     await closeMainWindow();
   } catch (error) {
+    console.error(error);
     await showToast({
       title: "Failed opening selected Finder or Path Finder item",
       style: Toast.Style.Failure,

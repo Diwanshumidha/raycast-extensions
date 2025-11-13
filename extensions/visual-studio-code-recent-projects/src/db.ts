@@ -6,6 +6,7 @@ import { build } from "./preferences";
 import { EntryLike, RecentEntries } from "./types";
 import { isSameEntry } from "./utils";
 import { execFilePromise } from "./utils/exec";
+import path from "path";
 
 export type RemoveMethods = {
   removeEntry: (entry: EntryLike) => Promise<void>;
@@ -20,6 +21,7 @@ export function useRecentEntries() {
       data: [],
       isLoading: false,
       error: true,
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       removeEntry: (entry: EntryLike) => Promise.resolve(),
       removeAllEntries: () => Promise.resolve(),
@@ -83,7 +85,19 @@ export function useRecentEntries() {
 }
 
 function getPath() {
-  return `${homedir()}/Library/Application Support/${build}/User/globalStorage/state.vscdb`;
+  const homeDir = homedir();
+  const PLATFORM = process.platform;
+
+  switch (PLATFORM) {
+    case "darwin":
+      return path.join(homeDir, "Library", "Application Support", build, "User", "globalStorage", "state.vscdb");
+    case "linux":
+      return path.join(homeDir, ".config", build, "User", "globalStorage", "state.vscdb");
+    case "win32":
+      return path.join(homeDir, "AppData", "Roaming", build, "User", "globalStorage", "state.vscdb");
+    default:
+      throw new Error(`Unsupported platform: ${PLATFORM}`);
+  }
 }
 
 async function saveEntries(entries: EntryLike[]) {

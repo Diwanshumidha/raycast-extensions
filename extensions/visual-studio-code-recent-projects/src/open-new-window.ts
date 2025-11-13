@@ -1,5 +1,5 @@
 import { Toast, closeMainWindow, showToast } from "@raycast/api";
-import { runAppleScript } from "@raycast/utils";
+import { runAppleScript, runPowerShellScript } from "@raycast/utils";
 import { build } from "./preferences";
 import { VSCodeBuild } from "./types";
 
@@ -34,7 +34,10 @@ const NewWindowMenuItemIndex: Record<VSCodeBuild, number> = {
  * We need to handle this case specially.
  */
 const makeNewWindow = async () => {
-  await runAppleScript(`
+  if (process.platform === "win32") {
+    await runPowerShellScript("code -n");
+  } else {
+    await runAppleScript(`
     tell application "${build}"
 	    activate
     end tell
@@ -55,6 +58,7 @@ const makeNewWindow = async () => {
 	    end tell
     end tell
   `);
+  }
 };
 
 export default async function command() {

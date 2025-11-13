@@ -1,5 +1,5 @@
 import { Action, ActionPanel, Color, Grid, Icon, open, openExtensionPreferences, showToast, Toast } from "@raycast/api";
-import { usePromise } from "@raycast/utils";
+import { usePromise, runPowerShellScript, showFailureToast } from "@raycast/utils";
 import { basename, dirname } from "path";
 import { useEffect, useState } from "react";
 import { runAppleScriptSync } from "run-applescript";
@@ -40,6 +40,7 @@ import {
 } from "./utils";
 import { getEditorApplication } from "./utils/editor";
 import { getGitBranch } from "./utils/git";
+import { resolveUriToPath } from "./utils/utils";
 
 export default function Command() {
   const { data, isLoading, error, ...removeMethods } = useRecentEntries();
@@ -143,6 +144,49 @@ function EntryItem(props: { entry: EntryLike; pinned?: boolean } & PinMethods & 
   }
 }
 
+async function killApplications() {
+  const platform = process.platform;
+
+  try {
+    switch (platform) {
+      case "darwin": {
+        runAppleScriptSync(`
+        tell application "System Events"
+          tell process "${build}"
+            repeat while window 1 exists
+              click button 1 of window 1
+            end repeat
+          end tell
+        end tell
+        `);
+        break;
+      }
+
+      case "win32": {
+        const psScript = `
+          $process = Get-Process -Name '${build}' -ErrorAction SilentlyContinue
+          if ($process) {
+            $process | ForEach-Object { $_.CloseMainWindow() | Out-Null }
+            Start-Sleep -Seconds 1
+            if (!$process.HasExited) {
+              taskkill /IM "${build}.exe" /F | Out-Null
+            }
+          }
+        `;
+        await runPowerShellScript(psScript);
+        break;
+      }
+
+      default:
+        console.warn(`Unsupported platform: ${platform}. Skipping killApplications.`);
+        break;
+    }
+  } catch (error) {
+    console.error(`Failed to close ${build}:`, error);
+    showFailureToast?.(`Failed to close ${build}`);
+  }
+}
+
 function LocalItem(
   props: { entry: EntryLike; uri: string; pinned?: boolean; gridView?: boolean } & PinMethods & RemoveMethods
 ) {
@@ -182,19 +226,16 @@ function LocalItem(
   };
 
   const getAction = (revert = false) => {
-    return () => {
+    return async () => {
       if (closeOtherWindows !== revert) {
-        runAppleScriptSync(`
-        tell application "System Events"
-          tell process "${build}"
-            repeat while window 1 exists
-              click button 1 of window 1
-            end repeat
-          end tell
-        end tell
-        `);
+        await killApplications();
       }
-      open(props.uri, bundleIdentifier);
+
+      // On windows build id is not present
+      const applicationName = process.platform === "win32" ? build : bundleIdentifier;
+      const uri = process.platform === "win32" ? resolveUriToPath(props.uri) : props.uri;
+
+      await open(uri, applicationName);
     };
   };
 
